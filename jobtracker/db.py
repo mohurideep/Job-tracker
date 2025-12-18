@@ -1,24 +1,33 @@
+import os
 import streamlit as st
-import psycopg
-from psycopg.rows import dict_row
+import psycopg2
+import psycopg2.extras
+
+def _get_secret(key: str):
+    try:
+        return st.secrets.get(key, None)
+    except Exception:
+        return None
 
 def get_conn():
-    # Prefer Streamlit secrets in cloud; fallback to env if you want locally
-    db_url = None
-    if hasattr(st, "secrets") and "DATABASE_URL" in st.secrets:
-        db_url = st.secrets["DATABASE_URL"]
-
+    db_url = _get_secret("DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not db_url:
-        raise RuntimeError("DATABASE_URL is not set. Add it to Streamlit Secrets.")
+        raise RuntimeError(
+            "DATABASE_URL not set.\n"
+            "Local: set env var DATABASE_URL\n"
+            "Cloud: add DATABASE_URL to Streamlit Secrets"
+        )
 
-    # dict_row lets us work with column names easily if needed
-    conn = psycopg.connect(db_url, row_factory=dict_row)
+    conn = psycopg2.connect(
+        db_url,
+        cursor_factory=psycopg2.extras.RealDictCursor,
+    )
     return conn
 
 def init_db(conn):
     with conn.cursor() as cur:
-        cur.execute(
-            """
+        # applications
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS applications (
                 id SERIAL PRIMARY KEY,
                 company TEXT NOT NULL,
@@ -35,6 +44,21 @@ def init_db(conn):
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
-            """
-        )
+        """)
+
+        # documents (attachments) - includes dedupe + type
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS documents (
+                id SERIAL PRIMARY KEY,
+                application_id INTEGER NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+                filename TEXT NOT NULL,
+                mime_type TEXT,
+                doc_type TEXT NOT NULL DEFAULT 'Document',
+                content_hash TEXT NOT NULL,
+                content BYTEA NOT NULL,
+                uploaded_at TEXT NOT NULL,
+                UNIQUE(application_id, content_hash)
+            )
+        """)
+
     conn.commit()
