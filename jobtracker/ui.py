@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import date
+from datetime import date,datetime
 
 from jobtracker.auth import logout_button
 from jobtracker.repository import fetch_df, insert_app, update_app, delete_app
@@ -50,7 +50,7 @@ def render_app(conn):
                 "applied_date","followup_date","overdue","source",
                 "job_url","contact","salary","updated_at"
             ]
-            st.dataframe(df[show_cols], use_container_width=True, hide_index=True)
+            st.dataframe(df[show_cols], width="content", hide_index=True)
 
     with tabs[1]:
         st.subheader("Add / Edit application")
@@ -177,6 +177,7 @@ def pd_to_date(s):
     if not s:
         return None
     try:
+        
         return datetime.strptime(str(s), "%Y-%m-%d").date()
     except Exception:
         return None
