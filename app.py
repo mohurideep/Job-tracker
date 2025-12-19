@@ -9,11 +9,10 @@ def main():
     require_login()
 
     conn = get_conn()
-    try:
-        init_db(conn)
-        render_app(conn)
-    finally:
-        conn.close()
+    init_db(conn)
+
+    # DO NOT close the connection
+    render_app(conn)
 
 if __name__ == "__main__":
     main()
